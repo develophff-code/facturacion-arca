@@ -1,136 +1,479 @@
-# afip-facturacion
+# Facturación Electrónica ARCA/AFIP — Módulo Python
 
-Sistema de facturación electrónica para [ARCA/AFIP](https://www.afip.gob.ar/) (Argentina). Genera comprobantes electrónicos (Factura C, B, A, Notas de Crédito/Débito) via Web Services WSFEv1 y produce PDFs en formato oficial.
+Módulo reutilizable para emitir comprobantes electrónicos (Facturas A, B y C, Notas de Crédito y Débito) a través del servicio WSFEv1 de ARCA/AFIP. Diseñado para integrarse como microservicio en otros sistemas mediante una API REST.
+
+---
 
 ## Características
 
-- Autenticación WSAA con caché automático de tokens (~12hs)
-- Facturación via WSFEv1 (Factura Electrónica v1)
-- Generación de PDF en formato idéntico al oficial de ARCA/AFIP
-- 3 copias por comprobante: ORIGINAL, DUPLICADO, TRIPLICADO
-- QR code según RG 4291
-- Soporte para entorno de homologación y producción
-- Configuración externalizada en JSON (sin hardcodear datos)
+- Emisión de Facturas A, B y C
+- Emisión de Notas de Crédito y Débito con comprobante asociado
+- Discriminación de IVA por alícuota (0%, 2,5%, 5%, 10,5%, 21%, 27%)
+- Generación de PDF con formato oficial ARCA
+- Caché automático de token WSAA (~12 hs)
+- Recibe los datos de cada factura vía JSON
+- Usable como módulo importable o desde CLI
+
+---
+
+## Estructura del proyecto
+
+```
+afip-facturacion/
+├── afip_facturacion.py       # Módulo principal — clase AfipFacturacion
+├── generar_pdf_html.py       # Generador de PDF a partir del template HTML
+├── factura_template.html     # Template Jinja2 con formato oficial ARCA
+├── main.py                   # API FastAPI (para despliegue como servicio)
+├── config.json               # Datos del emisor y rutas a certificados (no commitear)
+├── config.example.json       # Ejemplo de config sin datos sensibles
+├── requirements.txt          # Dependencias Python
+├── afip_certs/
+│   ├── certificado_homo.crt  # Certificado de homologación
+│   ├── privada_homo.key      # Clave privada de homologación
+│   ├── certificado_prod.crt  # Certificado de producción
+│   ├── privada_prod.key      # Clave privada de producción
+│   ├── token_cache_homo.json # Generado automáticamente
+│   └── token_cache_prod.json # Generado automáticamente
+└── output/                   # PDFs generados
+```
+
+> ⚠️ `config.json` y `afip_certs/*.key` **nunca deben commitearse**. Están incluidos en `.gitignore`.
+
+---
 
 ## Requisitos
 
-- Python 3.8+
-- OpenSSL (para firmar tickets WSAA)
-- Certificado digital de AFIP ([cómo obtenerlo](https://www.afip.gob.ar/ws/WSAA/wsaa_obtener_certificado_produccion.pdf))
+- Python 3.11+
+- OpenSSL instalado en el sistema
+- Certificado digital AFIP (homologación y/o producción)
+
+### Dependencias del sistema (Ubuntu/Debian)
 
 ```bash
+sudo apt install python3-dev libxml2-dev libxslt1-dev gcc libssl-dev
+```
+
+### Dependencias del sistema (Fedora)
+
+```bash
+sudo dnf install python3-devel libxml2-devel libxslt-devel gcc openssl-devel
+```
+
+---
+
+## Instalación
+
+```bash
+git clone https://github.com/tu-usuario/afip-facturacion
+cd afip-facturacion
+
+python3 -m venv .venv
+source .venv/bin/activate       # Windows: .venv\Scripts\activate
+
 pip install -r requirements.txt
 ```
 
-## Setup inicial (una sola vez)
+---
 
-Antes de poder facturar necesitás hacer un setup en el sitio de ARCA/AFIP. Son ~15 minutos.
+## Configuración
 
-### 1. Generar clave privada y CSR
-
-```bash
-# Generar clave privada RSA 2048
-openssl genrsa -out afip_certs/privada_prod.key 2048
-
-# Generar pedido de certificado (CSR)
-# IMPORTANTE: en "Common Name" poné tu CUIT (ej: 20123456789)
-openssl req -new -key afip_certs/privada_prod.key -out afip_certs/pedido_prod.csr -subj "/C=AR/O=TU NOMBRE/CN=TU_CUIT/serialNumber=CUIT TU_CUIT"
-```
-
-### 2. Obtener certificado en AFIP
-
-1. Entrá a [AFIP con clave fiscal](https://auth.afip.gob.ar/contribuyente_/login.xhtml)
-2. Buscá el servicio **"Administración de Certificados Digitales"**
-   - Si no lo tenés, agregalo desde "Administrador de Relaciones de Clave Fiscal"
-3. Dentro del servicio:
-   - Hacé click en **"Agregar alias / Crear certificado"**
-   - Alias: poné un nombre descriptivo (ej: "facturacion-ws")
-   - Pegá el contenido del archivo `pedido_prod.csr`
-   - Confirmá y descargá el certificado generado
-4. Guardá el certificado como `afip_certs/certificado_prod.crt`
-
-### 3. Habilitar punto de venta para Web Services
-
-1. Entrá a [Comprobantes en Línea (RCEL)](https://fe.afip.gob.ar/rcel/jsp/index.jsp) con clave fiscal
-2. Seleccioná tu empresa
-3. Andá a **"ABM de Puntos de Venta"** (en el menú de la izquierda)
-4. Hacé click en **"Agregar"**
-5. Elegí:
-   - Número de punto de venta (ej: 3)
-   - Sistema: **"Web Services / RECE"** (no "Factura en Línea")
-   - Domicilio: seleccioná tu domicilio fiscal
-6. Confirmá
-
-### 4. Asociar certificado al Web Service
-
-1. Entrá a **"Administración de Certificados Digitales"** de nuevo
-2. Seleccioná el certificado que creaste (el alias)
-3. Hacé click en **"Agregar relación"** o **"Autorizar WS"**
-4. Buscá y seleccioná el servicio **"wsfe"** (Factura Electrónica)
-5. Confirmá
-
-### 5. Configurar el proyecto
+Copiá el ejemplo y completá con tus datos:
 
 ```bash
 cp config.example.json config.json
 ```
 
-Editá `config.json` con tus datos reales: CUIT, razón social, domicilio, condición IVA, número de punto de venta, rutas a los certificados, y tus clientes.
+### Estructura de `config.json`
 
-### 6. Probar en homologación (opcional)
+```json
+{
+  "emisor": {
+    "cuit":                      "20123456789",
+    "razon_social":              "MI EMPRESA SRL",
+    "domicilio":                 "Av. San Martín 1234 - Mendoza",
+    "condicion_iva":             "IVA Responsable Inscripto",
+    "ingresos_brutos":           "20123456789",
+    "fecha_inicio_actividades":  "01/01/2020"
+  },
+  "punto_venta":       1,
+  "tipo_comprobante":  11,
+  "concepto":          2,
+  "certificados": {
+    "homo": {
+      "cert": "afip_certs/certificado_homo.crt",
+      "key":  "afip_certs/privada_homo.key"
+    },
+    "prod": {
+      "cert": "afip_certs/certificado_prod.crt",
+      "key":  "afip_certs/privada_prod.key"
+    }
+  }
+}
+```
 
-Para probar sin generar facturas reales, repetí los pasos 1-4 pero usando los endpoints de homologación. La clave privada puede ser la misma, pero el certificado se genera en el [entorno de testing de AFIP](https://wsaahomo.afip.gov.ar/).
+**Campos del emisor:**
+
+| Campo | Descripción |
+|---|---|
+| `cuit` | CUIT del emisor sin guiones |
+| `razon_social` | Nombre o razón social |
+| `domicilio` | Domicilio fiscal |
+| `condicion_iva` | Texto a mostrar en el PDF |
+| `ingresos_brutos` | Número de IIBB |
+| `fecha_inicio_actividades` | Fecha en formato `DD/MM/YYYY` |
+
+**Otros campos:**
+
+| Campo | Descripción |
+|---|---|
+| `punto_venta` | Número de punto de venta habilitado en AFIP |
+| `tipo_comprobante` | Tipo por defecto (se puede sobrescribir por factura) |
+| `concepto` | 1 = Productos, 2 = Servicios, 3 = Productos y Servicios |
+
+---
+
+## Uso como módulo
+
+```python
+from afip_facturacion import AfipFacturacion
+import json
+
+with open("config.json") as f:
+    config = json.load(f)
+
+afip = AfipFacturacion(config, base_dir="/ruta/proyecto")
+
+factura = { ... }   # ver schema más abajo
+
+resultado = afip.emitir_factura(factura)
+
+if resultado:
+    pdf_path = afip.generar_pdf(resultado)
+    print(f"CAE: {resultado['cae']}")
+    print(f"PDF: {pdf_path}")
+```
+
+---
+
+## Schema del JSON de factura
+
+### Factura A — 2 ítems con IVA 21%
+
+```json
+{
+  "env":               "homo",
+  "tipo_comprobante":  1,
+  "punto_venta":       2,
+  "concepto":          1,
+  "fecha_emision":     "2026-05-23",
+  "condicion_venta":   "Contado",
+
+  "receptor": {
+    "nombre":        "CAMPODONICO ROBERTO EMILIO",
+    "cuit":          "20203031514",
+    "condicion_iva": 1,
+    "domicilio":     "Entre Rios (Sur) 219 - San Juan, San Juan"
+  },
+
+  "items": [
+    {
+      "codigo":           "LAV01",
+      "descripcion":      "Lavandina",
+      "cantidad":         5,
+      "precio_unitario":  578.51,
+      "unidad":           "litros",
+      "alicuota_iva_id":  5
+    },
+    {
+      "codigo":           "DES01",
+      "descripcion":      "Desengrasante",
+      "cantidad":         5,
+      "precio_unitario":  1404.96,
+      "unidad":           "litros",
+      "alicuota_iva_id":  5
+    }
+  ]
+}
+```
+
+### Factura C — Monotributo (sin IVA)
+
+```json
+{
+  "env":               "homo",
+  "tipo_comprobante":  11,
+  "receptor": {
+    "nombre":        "GARCIA JUAN CARLOS",
+    "cuit":          "23123456789",
+    "condicion_iva": 5
+  },
+  "items": [
+    {
+      "descripcion":     "Servicio de desarrollo web - Mayo 2026",
+      "cantidad":        1,
+      "precio_unitario": 150000.00
+    }
+  ]
+}
+```
+
+> Para Factura C no hace falta `alicuota_iva_id` — el módulo fuerza 0% automáticamente.
+
+### Nota de Crédito A — para anular una Factura A
+
+```json
+{
+  "env":               "homo",
+  "tipo_comprobante":  3,
+  "punto_venta":       2,
+  "concepto":          1,
+  "fecha_emision":     "2026-05-23",
+
+  "comprobante_asociado": {
+    "tipo":        1,
+    "punto_venta": 2,
+    "numero":      158,
+    "fecha":       "2026-05-23",
+    "cuit_emisor": "20124329362"
+  },
+
+  "receptor": {
+    "nombre":        "CAMPODONICO ROBERTO EMILIO",
+    "cuit":          "20203031514",
+    "condicion_iva": 1,
+    "domicilio":     "Entre Rios (Sur) 219 - San Juan, San Juan"
+  },
+
+  "items": [
+    {
+      "descripcion":     "Anulación — Lavandina (NC Fac. A 00002-00000158)",
+      "cantidad":        5,
+      "precio_unitario": 578.51,
+      "unidad":          "litros",
+      "alicuota_iva_id": 5
+    },
+    {
+      "descripcion":     "Anulación — Desengrasante (NC Fac. A 00002-00000158)",
+      "cantidad":        5,
+      "precio_unitario": 1404.96,
+      "unidad":          "litros",
+      "alicuota_iva_id": 5
+    }
+  ]
+}
+```
+
+### Referencia de campos
+
+**Raíz del JSON:**
+
+| Campo | Requerido | Descripción |
+|---|---|---|
+| `env` | No | `"homo"` o `"prod"`. Default: `"homo"` |
+| `tipo_comprobante` | No | Ver tabla de tipos. Default: valor en `config.json` |
+| `punto_venta` | No | Default: valor en `config.json` |
+| `concepto` | No | 1=Productos, 2=Servicios, 3=Ambos. Default: config |
+| `fecha_emision` | No | `YYYY-MM-DD`. Default: hoy |
+| `condicion_venta` | No | Texto libre. Default: `"Contado"` |
+| `comprobante_asociado` | Sí (NC/ND) | Requerido para Notas de Crédito y Débito |
+
+**Receptor:**
+
+| Campo | Requerido | Descripción |
+|---|---|---|
+| `nombre` | Sí | Razón social o apellido y nombre |
+| `cuit` | Sí | CUIT sin guiones |
+| `condicion_iva` | Sí | Código AFIP: 1=RI, 4=Exento, 5=CF, 6=Monotributo |
+| `domicilio` | No | Domicilio comercial |
+
+**Ítems:**
+
+| Campo | Requerido | Descripción |
+|---|---|---|
+| `descripcion` | Sí | Descripción del producto o servicio |
+| `cantidad` | Sí | Cantidad (acepta decimales) |
+| `precio_unitario` | Sí | Precio unitario sin IVA |
+| `alicuota_iva_id` | No | Código AFIP de alícuota (ver tabla). Default: 3 (0%) |
+| `codigo` | No | Código interno del producto |
+| `unidad` | No | Unidad de medida. Default: `"unidades"` |
+| `bonificacion_pct` | No | % de bonificación. Default: 0 |
+
+**Alícuotas de IVA:**
+
+| `alicuota_iva_id` | Alícuota |
+|---|---|
+| 3 | 0% (Monotributo, exentos) |
+| 4 | 10,5% |
+| 5 | 21% |
+| 6 | 27% |
+| 8 | 5% |
+| 9 | 2,5% |
+
+**Tipos de comprobante:**
+
+| Código | Tipo |
+|---|---|
+| 1 | Factura A |
+| 2 | Nota de Débito A |
+| 3 | Nota de Crédito A |
+| 6 | Factura B |
+| 7 | Nota de Débito B |
+| 8 | Nota de Crédito B |
+| 11 | Factura C |
+| 12 | Nota de Débito C |
+| 13 | Nota de Crédito C |
+
+---
+
+## Uso desde CLI
 
 ```bash
-python afip_facturacion.py ejemplo 100 homo
+source .venv/bin/activate
+python afip_facturacion.py factura.json homo
 ```
 
-### 7. Primera factura real
+El segundo argumento sobrescribe el campo `env` del JSON.
+
+---
+
+## API REST (FastAPI)
+
+El archivo `main.py` expone el módulo como servicio HTTP:
 
 ```bash
-python afip_facturacion.py tu_cliente 100000 prod
+uvicorn main:app --host 0.0.0.0 --port 8001
 ```
 
-Si ves `✅ FACTURA APROBADA` con un CAE, todo está funcionando.
+**Endpoint:**
 
-## Uso
+```
+POST /facturar
+Content-Type: application/json
+X-API-Key: tu-api-key-secreta
+
+{ ...json de factura... }
+```
+
+**Respuesta exitosa:**
+
+```json
+{
+  "status":           "aprobada",
+  "comprobante_nro":  158,
+  "punto_venta":      2,
+  "tipo_comprobante": 1,
+  "cae":              "86216714039771",
+  "cae_vto":          "20260602",
+  "monto_total":      24000.05,
+  "imp_neto":         19834.75,
+  "imp_iva":          4165.30,
+  "fecha_emision":    "20260523"
+}
+```
+
+---
+
+## Despliegue en servidor (Ubuntu con Apache)
+
+### 1. Clonar y configurar
 
 ```bash
-# Homologación (testing)
-python afip_facturacion.py ejemplo 100000 homo
-
-# Producción
-python afip_facturacion.py ejemplo 1500000 prod
+cd /var/www
+git clone https://github.com/tu-usuario/afip-facturacion
+cd afip-facturacion
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp config.example.json config.json
+# Completar config.json y copiar certificados a afip_certs/
 ```
 
-El script autentica, genera la factura, obtiene el CAE, y produce el PDF automáticamente en `output/`.
+### 2. Servicio systemd
 
-## Estructura
+Crear `/etc/systemd/system/afip-facturacion.service`:
 
+```ini
+[Unit]
+Description=AFIP Facturación API
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/var/www/afip-facturacion
+ExecStart=/var/www/afip-facturacion/.venv/bin/gunicorn \
+    -w 2 -k uvicorn.workers.UvicornWorker \
+    -b 127.0.0.1:8001 main:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
 ```
-afip-facturacion/
-├── afip_facturacion.py      # Script principal (auth + facturación + PDF)
-├── generar_pdf_html.py      # Motor de generación de PDF
-├── factura_template.html    # Template HTML formato oficial AFIP
-├── config.example.json      # Configuración de ejemplo
-├── config.json              # Tu configuración (no se sube a git)
-├── requirements.txt         # Dependencias Python
-├── afip_certs/              # Certificados (no se suben a git)
-│   ├── certificado_prod.crt
-│   └── privada_prod.key
-└── output/                  # PDFs generados (no se suben a git)
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable afip-facturacion
+sudo systemctl start afip-facturacion
 ```
 
-## Tipos de comprobante soportados
+### 3. VirtualHost Apache
 
-| Código | Letra | Tipo |
-|--------|-------|------|
-| 1 | A | Factura |
-| 6 | B | Factura |
-| 11 | C | Factura |
-| 2 / 7 / 12 | A / B / C | Nota de Débito |
-| 3 / 8 / 13 | A / B / C | Nota de Crédito |
+```apache
+<VirtualHost *:443>
+    ServerName afip.tu-dominio.com
 
-## Licencia
+    ProxyPass        / http://127.0.0.1:8001/
+    ProxyPassReverse / http://127.0.0.1:8001/
 
-MIT
+    SSLEngine on
+    SSLCertificateFile    /etc/letsencrypt/live/tu-dominio.com/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/tu-dominio.com/privkey.pem
+</VirtualHost>
+```
+
+```bash
+sudo a2enmod proxy proxy_http ssl
+sudo systemctl reload apache2
+```
+
+### 4. SSL con Certbot
+
+```bash
+sudo certbot --apache -d afip.tu-dominio.com
+```
+
+---
+
+## Integración desde otra app (ejemplo fetch)
+
+```javascript
+const response = await fetch("https://afip.tu-dominio.com/facturar", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-API-Key":    process.env.AFIP_API_KEY
+  },
+  body: JSON.stringify(facturaJson)
+});
+
+const resultado = await response.json();
+console.log(resultado.cae);
+```
+
+---
+
+## Notas importantes
+
+- Los certificados de **homologación** y **producción** son distintos y se obtienen por separado desde el portal de AFIP.
+- El punto de venta también debe habilitarse en el entorno de homologación por separado.
+- El caché de token se renueva automáticamente al vencer (~12 hs). No requiere intervención manual.
+- Los PDFs se guardan en `output/` con el nombre `{cuit}_{tipo}_{ptoVta}_{nro}.pdf`.
+
+---
+
+## Roadmap
+
+- [ ] Soporte para ítems con múltiples alícuotas de IVA en la misma factura
+- [ ] Endpoint para consulta de comprobante por número
+- [ ] Migración a AWS Lambda (reemplazando `subprocess openssl` por `cryptography` puro Python)
+- [ ] Soporte para otros tributos (percepciones provinciales, municipales)
