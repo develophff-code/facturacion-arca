@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@page {
+    size: A4;
+    margin: 15mm 15mm 15mm 15mm;
+}
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 9pt;
+    color: #000;
+}
+.page {
+    width: 100%;
+    page-break-after: always;
+}
+.page:last-child {
+    page-break-after: avoid;
+}
+
+/* === HEADER TOP: ORIGINAL/DUPLICADO/TRIPLICADO === */
+.copy-label {
+    text-align: center;
+    font-size: 12pt;
+    font-weight: bold;
+    border: 1px solid #000;
+    border-bottom: none;
+    padding: 6px 0;
+}
+
+/* === HEADER MAIN === */
+.header-main {
+    display: table;
+    width: 100%;
+    border: 1px solid #000;
+    border-collapse: collapse;
+}
+.header-left, .header-right {
+    display: table-cell;
+    width: 50%;
+    vertical-align: top;
+    padding: 8px 10px;
+}
+.header-left  { border-right: none; }
+.header-right { border-left: none; padding-left: 50px; }
+
+/* C box in center */
+.header-main { position: relative; }
+.c-box {
+    position: absolute;
+    left: 50%;
+    top: -1px;
+    transform: translateX(-50%);
+    width: 55px;
+    height: 55px;
+    border: 1px solid #000;
+    background: #fff;
+    text-align: center;
+    z-index: 10;
+}
+.c-box .letter {
+    font-size: 32pt;
+    font-weight: bold;
+    line-height: 38px;
+}
+.c-box .cod { font-size: 7pt; font-weight: normal; }
+
+.emitter-name {
+    font-size: 16pt;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 8px;
+    padding-right: 40px;
+}
+.factura-title { font-size: 22pt; font-weight: bold; margin-bottom: 4px; }
+.pv-comp  { margin-bottom: 2px; }
+.pv-comp strong { font-size: 9pt; }
+.header-field { margin-bottom: 1px; line-height: 1.5; }
+
+/* === PERIOD ROW === */
+.period-row {
+    border: 1px solid #000;
+    border-top: none;
+    padding: 5px 10px;
+    display: table;
+    width: 100%;
+}
+.period-row .period-cell { display: table-cell; }
+.period-cell:first-child  { width: 38%; }
+.period-cell:nth-child(2) { width: 25%; }
+.period-cell:last-child   { width: 37%; text-align: right; }
+
+/* === CLIENT ROW === */
+.client-row {
+    border: 1px solid #000;
+    border-top: none;
+    padding: 5px 10px;
+}
+.client-line { display: table; width: 100%; margin-bottom: 1px; }
+.client-line .cl-cell { display: table-cell; }
+.client-line .cl-cell:first-child { width: 25%; }
+
+/* === ITEMS TABLE === */
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #000;
+    border-top: none;
+}
+.items-table th {
+    background: #c0c0c0;
+    border: 1px solid #000;
+    padding: 4px 5px;
+    font-size: 7.5pt;
+    font-weight: bold;
+    text-align: center;
+}
+.items-table td {
+    border-left:  1px solid #c0c0c0;
+    border-right: 1px solid #c0c0c0;
+    padding: 4px 5px;
+    font-size: 8pt;
+    vertical-align: top;
+}
+.items-table td:first-child { border-left:  1px solid #000; }
+.items-table td:last-child  { border-right: 1px solid #000; }
+.items-table tr.item-row td { border-top: 1px solid #c0c0c0; }
+.items-table tr.item-row:first-child td { border-top: none; }
+
+/* Column widths — ajustadas para las 2 columnas nuevas */
+.col-codigo    { width: 6%;  }
+.col-producto  { width: 24%; }
+.col-cantidad  { width: 7%;  text-align: right; }
+.col-umedida   { width: 8%;  text-align: center; }
+.col-precio    { width: 11%; text-align: right; }
+.col-bonifp    { width: 7%;  text-align: right; }
+.col-subtotal  { width: 11%; text-align: right; }
+.col-alicuota  { width: 9%;  text-align: center; }
+.col-subtotal_iva { width: 12%; text-align: right; }
+
+/* Spacer */
+.items-spacer {
+    border-left:  1px solid #000;
+    border-right: 1px solid #000;
+    border-bottom: 1px solid #000;
+    height: 200px;
+}
+
+/* === TOTALS === */
+.totals-box {
+    border: 2px solid #000;
+    padding: 5px 10px;
+    display: table;
+    width: 100%;
+}
+
+/* Fila izquierda (Otros Tributos arriba) + columna derecha (resto) */
+.totals-inner {
+    display: table;
+    width: 100%;
+}
+.totals-left {
+    display: table-cell;
+    width: 50%;
+    vertical-align: top;
+    padding-right: 10px;
+}
+.totals-right {
+    display: table-cell;
+    width: 50%;
+    vertical-align: top;
+    border-left: 1px solid #ccc;
+    padding-left: 10px;
+}
+
+.total-line {
+    display: table;
+    width: 100%;
+    margin-bottom: 1px;
+}
+.total-label {
+    display: table-cell;
+    text-align: right;
+    padding-right: 10px;
+    width: 75%;
+}
+.total-value {
+    display: table-cell;
+    text-align: right;
+    width: 25%;
+}
+.total-line.grand-total .total-label,
+.total-line.grand-total .total-value {
+    font-weight: bold;
+    font-size: 10pt;
+}
+
+/* === FOOTER === */
+.footer { margin-top: 15px; display: table; width: 100%; }
+.footer-left   { display: table-cell; width: 30%; vertical-align: top; }
+.footer-center { display: table-cell; width: 30%; vertical-align: top; text-align: center; padding-top: 10px; }
+.footer-right  { display: table-cell; width: 40%; vertical-align: top; text-align: right; }
+.footer-right .cae-line { margin-bottom: 3px; font-size: 9pt; }
+
+.footer-qr-row { display: table; width: 100%; }
+.qr-img { display: table-cell; width: 100px; height: 100px; vertical-align: top; }
+.arca-block { display: table-cell; vertical-align: bottom; padding-left: 8px; }
+.arca-logo  { font-size: 20pt; font-weight: bold; color: #003366; }
+.arca-sub   { font-size: 5.5pt; color: #003366; line-height: 1.2; }
+.comprobante-autorizado { font-weight: bold; font-size: 9pt; margin-top: 8px; }
+.disclaimer { font-size: 7pt; margin-top: 4px; }
+.pag { font-size: 9pt; font-weight: bold; }
+</style>
+</head>
+<body>
+
+{% for copy_name in copies %}
+<div class="page">
+
+    <!-- Copy Label -->
+    <div class="copy-label">{{ copy_name }}</div>
+
+    <!-- Header Main -->
+    <div class="header-main">
+
+        <!-- Letra Box -->
+        <div class="c-box">
+            <div class="letter">{{ comp.letra | default('C') }}</div>
+            <div class="cod">COD. {{ comp.cod_comprobante | default('011') }}</div>
+        </div>
+
+        <!-- Left Side: Emitter Info -->
+        <div class="header-left">
+            <div class="emitter-name">{{ emisor.razon_social }}</div>
+            <div class="header-field"><strong>Razón Social:</strong> {{ emisor.razon_social }}</div>
+            <div class="header-field"><strong>Domicilio Comercial:</strong> {{ emisor.domicilio }}</div>
+            <div class="header-field"><strong>Condición frente al IVA:</strong> {{ emisor.condicion_iva }}</div>
+        </div>
+
+        <!-- Right Side: Invoice Info -->
+        <div class="header-right">
+            <div class="factura-title">{{ comp.nombre_comprobante | default('FACTURA') }}</div>
+            <div class="pv-comp">
+                <strong>Punto de Venta: {{ comp.punto_venta }}</strong>&nbsp;&nbsp;&nbsp;
+                <strong>Comp. Nro: {{ comp.numero }}</strong>
+            </div>
+            <div class="header-field"><strong>Fecha de Emisión:</strong> {{ comp.fecha_emision }}</div>
+            <div class="header-field"><strong>CUIT:</strong> {{ emisor.cuit }}</div>
+            <div class="header-field"><strong>Ingresos Brutos:</strong> {{ emisor.iibb }}</div>
+            <div class="header-field"><strong>Fecha de Inicio de Actividades:</strong>&nbsp;&nbsp;{{ emisor.fecha_inicio }}</div>
+        </div>
+
+    </div>
+
+    <!-- Period Row -->
+    <div class="period-row">
+        <div class="period-cell"><strong>Período Facturado Desde:</strong>&nbsp;&nbsp;{{ comp.periodo_desde }}</div>
+        <div class="period-cell"><strong>Hasta:</strong> {{ comp.periodo_hasta }}</div>
+        <div class="period-cell"><strong>Fecha de Vto. para el pago:</strong> {{ comp.fecha_vto_pago }}</div>
+    </div>
+
+    <!-- Client Row -->
+    <div class="client-row">
+        <div class="client-line">
+            <div class="cl-cell"><strong>CUIT:</strong> {{ cliente.cuit }}</div>
+            <div class="cl-cell"><strong>Apellido y Nombre / Razón Social:</strong> {{ cliente.nombre }}</div>
+        </div>
+        <div class="client-line">
+            <div class="cl-cell"><strong>Condición frente al IVA:</strong>&nbsp;&nbsp;{{ cliente.condicion_iva }}</div>
+            <div class="cl-cell"><strong>Domicilio Comercial:</strong> {{ cliente.domicilio }}</div>
+        </div>
+        <div class="header-field"><strong>Condición de venta:</strong>&nbsp;&nbsp;{{ comp.condicion_venta }}</div>
+    </div>
+
+    <!-- Items Table -->
+    <table class="items-table">
+        <tr>
+            <th class="col-codigo">Código</th>
+            <th class="col-producto">Producto / Servicio</th>
+            <th class="col-cantidad">Cantidad</th>
+            <th class="col-umedida">U. medida</th>
+            <th class="col-precio">Precio Unit.</th>
+            <th class="col-bonifp">% Bonif</th>
+            <th class="col-subtotal">Subtotal</th>
+            <th class="col-alicuota">Alicuota IVA</th>
+            <th class="col-subtotal_iva">Subtotal c/IVA</th>
+        </tr>
+        {% for item in items %}
+        <tr class="item-row">
+            <td class="col-codigo">{{ item.codigo }}</td>
+            <td class="col-producto">{{ item.descripcion }}</td>
+            <td class="col-cantidad">{{ item.cantidad }}</td>
+            <td class="col-umedida">{{ item.unidad }}</td>
+            <td class="col-precio">{{ item.precio_unit }}</td>
+            <td class="col-bonifp">{{ item.bonif_pct }}</td>
+            <td class="col-subtotal">{{ item.subtotal }}</td>
+            <td class="col-alicuota">{{ item.alicuota_iva }}</td>
+            <td class="col-subtotal_iva">{{ item.subtotal_con_iva }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <!-- Spacer -->
+    <div class="items-spacer"></div>
+
+    <!-- Totals -->
+    <div class="totals-box">
+        <div class="totals-inner">
+
+            <!-- Columna izquierda: Otros Tributos (parte superior) -->
+            <div class="totals-left">
+                <div class="total-line">
+                    <div class="total-label">Importe Otros Tributos: $</div>
+                    <div class="total-value">{{ totales.otros_tributos }}</div>
+                </div>
+            </div>
+
+            <!-- Columna derecha: desglose completo -->
+            <div class="totals-right">
+                <div class="total-line">
+                    <div class="total-label"><strong>Importe Neto Gravado: $</strong></div>
+                    <div class="total-value"><strong>{{ totales.neto_gravado }}</strong></div>
+                </div>
+                <div class="total-line">
+                    <div class="total-label">IVA 27%: $</div>
+                    <div class="total-value">{{ totales.iva_27 }}</div>
+                </div>
+                <div class="total-line">
+                    <div class="total-label">IVA 21%: $</div>
+                    <div class="total-value">{{ totales.iva_21 }}</div>
+                </div>
+                <div class="total-line">
+                    <div class="total-label">IVA 10,5%: $</div>
+                    <div class="total-value">{{ totales.iva_105 }}</div>
+                </div>
+                <div class="total-line">
+                    <div class="total-label">IVA 5%: $</div>
+                    <div class="total-value">{{ totales.iva_5 }}</div>
+                </div>
+                <div class="total-line">
+                    <div class="total-label">IVA 2,5%: $</div>
+                    <div class="total-value">{{ totales.iva_25 }}</div>
+                </div>
+                <div class="total-line">
+                    <div class="total-label">IVA 0%: $</div>
+                    <div class="total-value">{{ totales.iva_0 }}</div>
+                </div>
+                <div class="total-line">
+                    <div class="total-label">Importe Otros Tributos: $</div>
+                    <div class="total-value">{{ totales.otros_tributos }}</div>
+                </div>
+                <div class="total-line grand-total">
+                    <div class="total-label">Importe Total: $</div>
+                    <div class="total-value">{{ totales.total }}</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <div class="footer-left">
+            <div class="footer-qr-row">
+                <img class="qr-img" src="{{ qr_image }}">
+                <div class="arca-block">
+                    <div class="arca-logo">ARCA</div>
+                    <div class="arca-sub">AGENCIA DE RECAUDACIÓN<br>Y CONTROL ADUANERO</div>
+                </div>
+            </div>
+            <div class="comprobante-autorizado"><em>Comprobante Autorizado</em></div>
+            <div class="disclaimer"><em>Esta Agencia no se responsabiliza por los datos ingresados en el detalle de la operación</em></div>
+        </div>
+        <div class="footer-center">
+            <div class="pag">Pág. 1/1</div>
+        </div>
+        <div class="footer-right">
+            <div class="cae-line"><strong>CAE N°:</strong> {{ comp.cae }}</div>
+            <div class="cae-line"><strong>Fecha de Vto. de CAE:</strong> {{ comp.cae_vto }}</div>
+        </div>
+    </div>
+
+</div>
+{% endfor %}
+
+</body>
+</html>

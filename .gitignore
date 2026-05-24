@@ -1,0 +1,20 @@
+# Configuración con datos reales
+config.json
+
+# Certificados y claves privadas
+afip_certs/*.key
+afip_certs/*.crt
+afip_certs/*.csr
+afip_certs/token_cache_*.json
+
+# PDFs generados
+output/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db

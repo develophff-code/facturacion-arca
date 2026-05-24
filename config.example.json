@@ -1,0 +1,32 @@
+{
+    "emisor": {
+        "cuit": "20123456789",
+        "razon_social": "APELLIDO NOMBRE",
+        "domicilio": "Calle 123 - Ciudad de Buenos Aires",
+        "condicion_iva": "Responsable Monotributo",
+        "ingresos_brutos": "123456",
+        "fecha_inicio_actividades": "01/01/2020"
+    },
+    "punto_venta": 1,
+    "tipo_comprobante": 11,
+    "concepto": 2,
+    "descripcion_default": "Servicios profesionales",
+    "certificados": {
+        "homo": {
+            "cert": "afip_certs/certificado_homo.crt",
+            "key": "afip_certs/privada_homo.key"
+        },
+        "prod": {
+            "cert": "afip_certs/certificado_prod.crt",
+            "key": "afip_certs/privada_prod.key"
+        }
+    },
+    "clientes": {
+        "ejemplo": {
+            "nombre": "GARCIA JUAN CARLOS",
+            "cuit": "23123456789",
+            "condicion_iva": 1,
+            "domicilio": "Av. Corrientes 1234 - CABA"
+        }
+    }
+}
