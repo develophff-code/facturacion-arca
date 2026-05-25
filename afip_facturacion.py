@@ -454,6 +454,11 @@ class AfipFacturacion:
         settings = Settings(strict=False, xml_huge_tree=True)
         client   = Client(AFIP_URLS[env]["wsaa"], settings=settings)
 
+        # DEBUG temporal
+        print("=== CMS a enviar (primeros 200 chars) ===")
+        print(cms_signed[:200])
+        print("=========================================")
+
         response = client.service.loginCms(cms_signed)
         root     = etree.fromstring(response.encode('utf-8'))
 
@@ -483,35 +488,30 @@ class AfipFacturacion:
 </loginTicketRequest>"""
 
     def _sign_login_ticket(self, ltr_xml: str, cert_path: str, key_path: str) -> str:
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as f:
-            f.write(ltr_xml)
-            ltr_file = f.name
+        from cryptography import x509
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.serialization import pkcs7
 
-        out_file = ltr_file + '.cms'
-        try:
-            cmd = [
-                'openssl', 'cms', '-sign',
-                '-in',     ltr_file,
-                '-signer', cert_path,
-                '-inkey',  key_path,
-                '-outform','PEM',
-                '-nodetach',
-                '-out',    out_file,
-            ]
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode != 0:
-                raise Exception(f"Error firmando CMS: {result.stderr}")
+        with open(cert_path, "rb") as f:
+            cert = x509.load_pem_x509_certificate(f.read())
 
-            with open(out_file, 'r') as f:
-                cms_content = f.read()
+        with open(key_path, "rb") as f:
+            key = serialization.load_pem_private_key(f.read(), password=None)
 
-            lines = cms_content.strip().split('\n')
-            return ''.join(l for l in lines if not l.startswith('-----'))
-        finally:
-            os.unlink(ltr_file)
-            if os.path.exists(out_file):
-                os.unlink(out_file)
+        data = ltr_xml.encode("utf-8")
 
+        # AFIP requiere firma attached (contenido incluido) en PEM sin headers
+        options = [pkcs7.PKCS7Options.NoAttributes]
+        cms_pem = (
+            pkcs7.PKCS7SignatureBuilder()
+            .set_data(data)
+            .add_signer(cert, key, hashes.SHA256())
+            .sign(serialization.Encoding.PEM, options)
+        )
+
+        # Extraer solo el base64 sin headers PEM
+        lines_pem = cms_pem.decode("ascii").strip().split("\n")
+        return "".join(l for l in lines_pem if not l.startswith("-----"))
     def _build_cbtes_asoc(self, factura_json: dict) -> dict:
         """
         Construye el nodo CbtesAsoc si el JSON trae comprobante_asociado.
