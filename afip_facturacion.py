@@ -232,12 +232,15 @@ class AfipFacturacion:
                     'ImpOpEx':               0,
                     'ImpTrib':               0,
                     'ImpIVA':                imp_iva,
-                    'FchServDesde':          fecha_desde,
-                    'FchServHasta':          fecha_hasta,
-                    'FchVtoPago':            fecha_vto_pago,
+                    # ✅ FIX 1: solo si concepto 2 o 3
+                    **({"FchServDesde": fecha_desde,
+                        "FchServHasta": fecha_hasta,
+                        "FchVtoPago":   fecha_vto_pago} if concepto in [2, 3] else {}),
                     'MonId':                 'PES',
                     'MonCotiz':              1,
                     'CondicionIVAReceptorId': int(receptor["condicion_iva"]),
+                    # ✅ FIX 2: array IVA obligatorio cuando ImpNeto > 0
+                    **({"Iva": {"AlicIva": self._build_iva_array(items)}} if imp_neto > 0 else {}),
                     # Comprobante asociado (requerido para NC y ND)
                     **self._build_cbtes_asoc(factura_json),
                 }]
@@ -299,7 +302,7 @@ class AfipFacturacion:
 
         Returns:
             Ruta al PDF generado, o None si hubo error.
-        """
+ 	       """
         from generar_pdf_html import generar_pdf as _generar_pdf
 
         r          = invoice_result
@@ -531,6 +534,30 @@ class AfipFacturacion:
                 }]
             }
         }
+
+    def _build_iva_array(self, items):
+        """Agrupa items por alicuota y acumula base imponible e importe IVA."""
+        from collections import defaultdict
+    
+        # Id AFIP → tasa
+        tasas = {3: 0.00, 4: 0.105, 5: 0.21, 6: 0.27, 8: 0.05, 9: 0.025}
+    
+        grupos = defaultdict(float)
+        for item in items:
+            alicuota_id = item.get("alicuota_iva_id", 5)
+            precio      = item["precio_unitario"] * item["cantidad"]
+            grupos[alicuota_id] += precio
+
+        resultado = []
+        for alicuota_id, base in grupos.items():
+            tasa = tasas.get(alicuota_id, 0.21)
+            resultado.append({
+                "Id":      alicuota_id,
+                "BaseImp": round(base, 2),
+                "Importe": round(base * tasa, 2),
+            })
+    
+        return resultado
 
     # ----------------------------------------------------------
     # WSFEv1 — Facturación
