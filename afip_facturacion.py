@@ -468,6 +468,7 @@ class AfipFacturacion:
         datos = {
             "emisor": {
                 "razon_social": emisor_cfg["razon_social"],
+                "nombre_fantasia": emisor_cfg.get("nombre_fantasia", ""),
                 "domicilio": emisor_cfg["domicilio"],
                 "condicion_iva": emisor_cfg["condicion_iva"],
                 "cuit": emisor_cfg["cuit"],
@@ -496,6 +497,7 @@ class AfipFacturacion:
                 "letra": tipo_info[0],
                 "nombre_comprobante": tipo_info[1],
                 "cod_comprobante": tipo_info[2],
+                "concepto": r.get("concepto", 1),
             },
             "items": items_pdf,
             "totales": totales,

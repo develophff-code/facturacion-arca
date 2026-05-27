@@ -49,7 +49,7 @@ body {
     padding: 8px 10px;
 }
 .header-left  { border-right: none; }
-.header-right { border-left: none; padding-left: 50px; }
+.header-right { border-left: none; padding-left: 32px; box-sizing: border-box; }
 
 /* C box in center */
 .header-main { position: relative; }
@@ -58,17 +58,17 @@ body {
     left: 50%;
     top: -1px;
     transform: translateX(-50%);
-    width: 55px;
-    height: 55px;
+    width: 45px;
+    height: 45px;
     border: 1px solid #000;
     background: #fff;
     text-align: center;
     z-index: 10;
 }
 .c-box .letter {
-    font-size: 32pt;
+    font-size: 26pt;
     font-weight: bold;
-    line-height: 38px;
+    line-height: 32px;
 }
 .c-box .cod { font-size: 7pt; font-weight: normal; }
 
@@ -77,11 +77,13 @@ body {
     font-weight: bold;
     text-align: center;
     margin-bottom: 8px;
-    padding-right: 40px;
+    padding-right: 30px;
 }
-.factura-title { font-size: 22pt; font-weight: bold; margin-bottom: 4px; }
-.pv-comp  { margin-bottom: 2px; }
-.pv-comp strong { font-size: 9pt; }
+.factura-title { font-size: 20pt; font-weight: bold; margin-bottom: 4px; }
+.pv-comp       { display: block; width: 100%; margin-bottom: 2px; }
+.pv-comp-pv    { display: table-cell; width: 48%; }
+.pv-comp-nro   { display: table-cell; width: 52%; }
+.pv-comp strong { font-size: 8pt; white-space: nowrap; }
 .header-field { margin-bottom: 1px; line-height: 1.5; }
 
 /* === PERIOD ROW === */
@@ -105,7 +107,7 @@ body {
 }
 .client-line { display: table; width: 100%; margin-bottom: 1px; }
 .client-line .cl-cell { display: table-cell; }
-.client-line .cl-cell:first-child { width: 25%; }
+.client-line .cl-cell:first-child { width: 33%; }
 
 /* === ITEMS TABLE === */
 .items-table {
@@ -238,7 +240,7 @@ body {
 
         <!-- Left Side: Emitter Info -->
         <div class="header-left">
-            <div class="emitter-name">{{ emisor.razon_social }}</div>
+            <div class="emitter-name">{{ emisor.nombre_fantasia if emisor.nombre_fantasia else emisor.razon_social }}</div>
             <div class="header-field"><strong>Razón Social:</strong> {{ emisor.razon_social }}</div>
             <div class="header-field"><strong>Domicilio Comercial:</strong> {{ emisor.domicilio }}</div>
             <div class="header-field"><strong>Condición frente al IVA:</strong> {{ emisor.condicion_iva }}</div>
@@ -248,8 +250,7 @@ body {
         <div class="header-right">
             <div class="factura-title">{{ comp.nombre_comprobante | default('FACTURA') }}</div>
             <div class="pv-comp">
-                <strong>Punto de Venta: {{ comp.punto_venta }}</strong>&nbsp;&nbsp;&nbsp;
-                <strong>Comp. Nro: {{ comp.numero }}</strong>
+                 <strong>Punto de Venta: {{ comp.punto_venta }}&nbsp;&nbsp;&nbsp;&nbsp;Comp. Nro: {{ comp.numero }}</strong>
             </div>
             <div class="header-field"><strong>Fecha de Emisión:</strong> {{ comp.fecha_emision }}</div>
             <div class="header-field"><strong>CUIT:</strong> {{ emisor.cuit }}</div>
@@ -259,12 +260,14 @@ body {
 
     </div>
 
-    <!-- Period Row -->
+    {% if comp.concepto in (2, 3) %}
+    <!-- Period Row — solo para servicios -->
     <div class="period-row">
         <div class="period-cell"><strong>Período Facturado Desde:</strong>&nbsp;&nbsp;{{ comp.periodo_desde }}</div>
         <div class="period-cell"><strong>Hasta:</strong> {{ comp.periodo_hasta }}</div>
         <div class="period-cell"><strong>Fecha de Vto. para el pago:</strong> {{ comp.fecha_vto_pago }}</div>
     </div>
+    {% endif %}
 
     <!-- Client Row -->
     <div class="client-row">
