@@ -40,6 +40,12 @@ class ReceptorFactura(BaseModel):
     condicion_iva: int = 5   # 1=RI  4=Exento  5=CF  6=Monotributo...
     domicilio:     str = ""
 
+class ComprobanteAsociado(BaseModel):
+    tipo:         int
+    punto_venta:  int
+    numero:       int
+    cuit_emisor:  str
+    fecha:        str   # "YYYY-MM-DD"
 
 class FacturaRequest(BaseModel):
     # Ambiente
@@ -62,6 +68,7 @@ class FacturaRequest(BaseModel):
     fch_serv_desde: Optional[str] = None
     fch_serv_hasta: Optional[str] = None
     fch_vto_pago:   Optional[str] = None
+    comprobante_asociado:    Optional[ComprobanteAsociado] = None
 
     @model_validator(mode="after")
     def validar_campos_servicio(self):
