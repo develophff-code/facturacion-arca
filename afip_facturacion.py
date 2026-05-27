@@ -204,18 +204,24 @@ class AfipFacturacion:
 
         fecha_emision = today.strftime("%Y%m%d")
 
-        # Período de servicio (primer y último día del mes de emisión)
-        first_day = today.replace(day=1)
-        if today.month == 12:
-            last_day = today.replace(day=31)
+        # Período de servicio
+        # Si el usuario envió las fechas (concepto 2 o 3), usarlas.
+        # Si no, calcular primer/último día del mes de emisión como fallback.
+        if concepto in (2, 3) and factura_json.get("fch_serv_desde"):
+            fecha_desde    = factura_json["fch_serv_desde"]
+            fecha_hasta    = factura_json["fch_serv_hasta"]
+            fecha_vto_pago = factura_json["fch_vto_pago"]
         else:
-            last_day = today.replace(month=today.month + 1, day=1) - datetime.timedelta(
-                days=1
-            )
-
-        fecha_desde = first_day.strftime("%Y%m%d")
-        fecha_hasta = last_day.strftime("%Y%m%d")
-        fecha_vto_pago = last_day.strftime("%Y%m%d")
+            first_day = today.replace(day=1)
+            if today.month == 12:
+                last_day = today.replace(day=31)
+            else:
+                last_day = today.replace(month=today.month + 1, day=1) - datetime.timedelta(
+                    days=1
+                )
+            fecha_desde    = first_day.strftime("%Y%m%d")
+            fecha_hasta    = last_day.strftime("%Y%m%d")
+            fecha_vto_pago = last_day.strftime("%Y%m%d")
 
         # Autenticación + cliente SOAP
         token, sign = self._authenticate(env)
@@ -310,6 +316,7 @@ class AfipFacturacion:
                 "fecha_emision": fecha_emision,
                 "periodo_desde": fecha_desde,
                 "periodo_hasta": fecha_hasta,
+                "fch_vto_pago": fecha_vto_pago,
                 "condicion_venta": factura_json.get("condicion_venta", "Contado"),
                 "comprobante_asociado": factura_json.get("comprobante_asociado"),
             }
@@ -481,7 +488,7 @@ class AfipFacturacion:
                 "fecha_emision": fmt_date(r["fecha_emision"]),
                 "periodo_desde": fmt_date(r["periodo_desde"]),
                 "periodo_hasta": fmt_date(r["periodo_hasta"]),
-                "fecha_vto_pago": fmt_date(r["periodo_hasta"]),
+                "fecha_vto_pago": fmt_date(r.get("fch_vto_pago", r["periodo_hasta"])),
                 "condicion_venta": r.get("condicion_venta", "Contado"),
                 "cae": r["cae"],
                 "cae_vto": fmt_date(r["cae_vto"]),
